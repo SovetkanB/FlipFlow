@@ -57,7 +57,7 @@ func Load() (*Config, error) {
 		},
 		DB: DBConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnv("DB_PORT", "5432"),
+			Port:     getEnv("DB_PORT", "45432"),
 			User:     getEnv("DB_USER", "flipper"),
 			Password: getEnv("DB_PASSWORD", "flipper"),
 			Name:     getEnv("DB_NAME", "flipflow"),
