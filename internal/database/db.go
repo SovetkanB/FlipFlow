@@ -1,9 +1,9 @@
-package repo
+package database
 
 import (
 	"context"
 
-	"github.com/SovetkanB/FlipFlow/config"
+	"github.com/SovetkanB/FlipFlow/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
