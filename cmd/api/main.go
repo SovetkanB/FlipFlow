@@ -41,7 +41,7 @@ func main() {
 	log.Println("Connected to PostgreSQL")
 
 	authRepo := auth.NewRepo(db)
-	authService := auth.NewService(authRepo)
+	authService := auth.NewService(authRepo, cfg.JWT)
 	authHandler := auth.NewHandler(authService)
 
 	router := router.NewRouter(authHandler)

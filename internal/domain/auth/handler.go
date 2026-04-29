@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/SovetkanB/FlipFlow/internal/pkg/response"
@@ -20,17 +21,37 @@ func NewHandler(svc Service) *Handler {
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := validator.DecodeAndValidate(r, &req); err != nil {
-		response.BadRequest(w, "validation error")
+		response.BadRequest(w, err.Error())
+		return
 	}
 
 	resp, err := h.service.Register(r.Context(), req)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "Error", err.Error())
+		switch {
+		case errors.Is(err, response.ErrEmailTaken):
+			response.Error(w, http.StatusConflict, "EMAIL_TAKEN", err.Error())
+			return
+		default:
+			response.Error(w, http.StatusInternalServerError, "Error", err.Error())
+			return
+		}
 	}
 
 	response.JSON(w, http.StatusOK, resp)
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	var req LoginRequest
+	if err := validator.DecodeAndValidate(r, &req); err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
 
+	resp, err := h.service.Login(r.Context(), req)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }
