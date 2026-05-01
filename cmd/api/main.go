@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/SovetkanB/FlipFlow/internal/api/middleware"
 	"github.com/SovetkanB/FlipFlow/internal/api/router"
 	"github.com/SovetkanB/FlipFlow/internal/config"
 	"github.com/SovetkanB/FlipFlow/internal/database"
@@ -40,11 +41,14 @@ func main() {
 
 	log.Println("Connected to PostgreSQL")
 
+	jwtManager := auth.NewJWTManager(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
+	authMiddleware := middleware.NewAuthMiddleware(jwtManager)
+
 	authRepo := auth.NewRepo(db)
-	authService := auth.NewService(authRepo, cfg.JWT)
+	authService := auth.NewService(authRepo, *jwtManager)
 	authHandler := auth.NewHandler(authService)
 
-	router := router.NewRouter(authHandler)
+	router := router.NewRouter(authHandler, authMiddleware)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.App.Port),

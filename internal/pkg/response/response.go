@@ -40,3 +40,7 @@ func Error(w http.ResponseWriter, status int, code, message string) {
 func BadRequest(w http.ResponseWriter, message string) {
 	Error(w, http.StatusBadRequest, "BAD_REQUEST", message)
 }
+
+func Unauthorized(w http.ResponseWriter) {
+	Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "authorization is required")
+}

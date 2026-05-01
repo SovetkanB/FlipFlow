@@ -5,16 +5,18 @@ import (
 	"net/http"
 	"time"
 
+	fliflowMiddleware "github.com/SovetkanB/FlipFlow/internal/api/middleware"
 	"github.com/SovetkanB/FlipFlow/internal/domain/auth"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )
 
 type Router struct {
-	auth *auth.Handler
+	auth           *auth.Handler
+	authMiddleware *fliflowMiddleware.AuthMiddleware
 }
 
-func NewRouter(auth *auth.Handler) http.Handler {
+func NewRouter(auth *auth.Handler, authMiddleware *fliflowMiddleware.AuthMiddleware) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -28,9 +30,18 @@ func NewRouter(auth *auth.Handler) http.Handler {
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
+		//Public endpoints
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", auth.Register)
 			r.Post("/login", auth.Login)
+			r.Post("/refresh", auth.Refresh)
+		})
+
+		//Private endpoints
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware.Authenticate)
+
+			r.Get("/auth/me", auth.Me)
 		})
 	})
 

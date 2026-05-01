@@ -41,6 +41,10 @@ type AuthResponse struct {
 	User  UserResponse `json:"user"`
 }
 
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
 type Claims struct {
 	UserID string `json:"user_id"`
 	Email  string `json:"email"`

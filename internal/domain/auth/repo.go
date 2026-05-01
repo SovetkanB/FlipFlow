@@ -11,7 +11,9 @@ import (
 type Repo interface {
 	Create(ctx context.Context, user *User) error
 	FindByEmail(ctx context.Context, email string) (*User, error)
+	FindByID(ctx context.Context, id string) (*User, error)
 	CreateRefreshToken(ctx context.Context, rt *RefreshToken) error
+	DeleteRefreshToken(ctx context.Context, rt string) (string, error)
 }
 
 type repo struct {
@@ -83,6 +85,34 @@ func (r *repo) FindByEmail(ctx context.Context, email string) (*User, error) {
 	return &user, nil
 }
 
+func (r *repo) FindByID(ctx context.Context, id string) (*User, error) {
+	query := `
+		SELECT id, email, password_hash, full_name, phone, created_at, updated_at FROM users
+		WHERE id = $1
+	`
+	var user User
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.FullName,
+		&user.Phone,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		switch {
+		case strings.Contains(err.Error(), "no rows"):
+			return nil, response.ErrNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return &user, nil
+}
+
 func (r *repo) CreateRefreshToken(ctx context.Context, rt *RefreshToken) error {
 	query := `
 		INSERT INTO refresh_tokens (user_id, token, expires_at)
@@ -95,4 +125,20 @@ func (r *repo) CreateRefreshToken(ctx context.Context, rt *RefreshToken) error {
 	)
 
 	return err
+}
+
+func (r *repo) DeleteRefreshToken(ctx context.Context, rt string) (string, error) {
+	query := `
+		DELETE FROM refresh_tokens
+		WHERE token = $1 AND expires_at > NOW()
+		RETURNING user_id
+	`
+	var userID string
+	err := r.db.QueryRow(ctx, query, rt).Scan(&userID)
+
+	if err != nil {
+		return "", response.ErrNotValidRefreshToken
+	}
+
+	return userID, nil
 }

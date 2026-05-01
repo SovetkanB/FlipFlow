@@ -3,10 +3,10 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"time"
 
-	"github.com/SovetkanB/FlipFlow/internal/config"
 	"github.com/SovetkanB/FlipFlow/internal/pkg/response"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -14,17 +14,18 @@ import (
 type Service interface {
 	Register(ctx context.Context, req RegisterRequest) (*AuthResponse, error)
 	Login(ctx context.Context, req LoginRequest) (*AuthResponse, error)
+	RefreshTokens(ctx context.Context, req RefreshTokenRequest) (*AuthResponse, error)
 }
 
 type service struct {
-	repo Repo
-	cfg  config.JWTConfig
+	repo       Repo
+	jwtManager JWTManager
 }
 
-func NewService(repo Repo, cfg config.JWTConfig) Service {
+func NewService(repo Repo, jwtManager JWTManager) Service {
 	return &service{
-		repo: repo,
-		cfg:  cfg,
+		repo:       repo,
+		jwtManager: jwtManager,
 	}
 }
 
@@ -61,8 +62,25 @@ func (s *service) Login(ctx context.Context, req LoginRequest) (*AuthResponse, e
 	return s.issueTokens(ctx, user)
 }
 
+func (s *service) RefreshTokens(ctx context.Context, req RefreshTokenRequest) (*AuthResponse, error) {
+	hash := sha256.Sum256([]byte(req.RefreshToken))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	userID, err := s.repo.DeleteRefreshToken(ctx, tokenHash)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.repo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.issueTokens(ctx, user)
+}
+
 func (s *service) issueTokens(ctx context.Context, user *User) (*AuthResponse, error) {
-	accessToken, err := GenerateAccessToken(s.cfg, user)
+	accessToken, err := s.jwtManager.GenerateAccessToken(user)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +94,7 @@ func (s *service) issueTokens(ctx context.Context, user *User) (*AuthResponse, e
 	rt := &RefreshToken{
 		UserID:    user.ID,
 		Token:     refreshToken,
-		ExpiresAt: time.Now().Add(s.cfg.RefreshTTL),
+		ExpiresAt: time.Now().Add(s.jwtManager.refreshTokenTTL),
 	}
 
 	if err := s.repo.CreateRefreshToken(ctx, rt); err != nil {

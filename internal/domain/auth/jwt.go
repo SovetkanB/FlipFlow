@@ -4,13 +4,26 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/SovetkanB/FlipFlow/internal/config"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func GenerateAccessToken(jwtconfig config.JWTConfig, user *User) (string, error) {
+type JWTManager struct {
+	secret          string
+	accessTokenTTL  time.Duration
+	refreshTokenTTL time.Duration
+}
+
+func NewJWTManager(secret string, accessTokenTTL time.Duration, refreshTokenTTL time.Duration) *JWTManager {
+	return &JWTManager{
+		secret:          secret,
+		accessTokenTTL:  accessTokenTTL,
+		refreshTokenTTL: refreshTokenTTL,
+	}
+}
+
+func (j *JWTManager) GenerateAccessToken(user *User) (string, error) {
 	now := time.Now()
-	expiresAt := now.Add(jwtconfig.AccessTTL)
+	expiresAt := now.Add(j.accessTokenTTL)
 
 	claims := Claims{
 		UserID: user.ID,
@@ -22,15 +35,15 @@ func GenerateAccessToken(jwtconfig config.JWTConfig, user *User) (string, error)
 		},
 	}
 
-	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(jwtconfig.Secret))
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(j.secret))
 }
 
-func ValidateToken(jwtconfig config.JWTConfig, tokenStr string) (*Claims, error) {
+func (j *JWTManager) ValidateToken(tokenStr string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
-		return []byte(jwtconfig.Secret), nil
+		return []byte(j.secret), nil
 	})
 	if err != nil {
 		return nil, err
