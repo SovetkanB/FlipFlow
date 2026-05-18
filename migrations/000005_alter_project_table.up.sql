@@ -1,0 +1,5 @@
+ALTER TABLE projects
+ADD COLUMN floor SMALLINT,
+ADD COLUMN total_floors SMALLINT;
+
+

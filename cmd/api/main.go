@@ -17,6 +17,7 @@ import (
 	"github.com/SovetkanB/FlipFlow/internal/domain/auth"
 	"github.com/SovetkanB/FlipFlow/internal/domain/expense"
 	"github.com/SovetkanB/FlipFlow/internal/domain/project"
+	"github.com/SovetkanB/FlipFlow/internal/pkg/storage"
 	"github.com/joho/godotenv"
 )
 
@@ -39,6 +40,15 @@ func main() {
 	}
 	defer db.Close()
 	log.Println("Connected to PostgreSQL")
+
+	s3, err := storage.NewMinIO(cfg.MinIO)
+	if err != nil {
+		log.Fatalf("Minio: %v", err)
+	}
+	if err := s3.EnsureBuckets(context.Background()); err != nil {
+		log.Fatalf("Bucket: %v", err)
+	}
+	log.Println("Connected to S3")
 
 	authRepo := auth.NewRepo(db)
 	authService := auth.NewService(authRepo, cfg.JWT)

@@ -5,29 +5,15 @@ import (
 	"time"
 )
 
-type Service interface {
-	List(ctx context.Context, projectID string) ([]Expense, error)
-	Create(ctx context.Context, projectID, userID string, req CreateExpenseRequest) (*Expense, error)
-	Delete(ctx context.Context, projectID, expenseID string) error
+type Service struct {
+	repo *Repo
 }
 
-type service struct {
-	repo Repo
+func NewService(repo *Repo) *Service {
+	return &Service{repo: repo}
 }
 
-func NewService(repo Repo) Service {
-	return &service{repo: repo}
-}
-
-func (s *service) List(ctx context.Context, projectID string) ([]Expense, error) {
-	result, err := s.repo.List(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (s *service) Create(ctx context.Context, projectID, userID string, req CreateExpenseRequest) (*Expense, error) {
+func (s *Service) Create(ctx context.Context, projectID, userID string, req CreateExpenseRequest) (*Expense, error) {
 	if req.PaidAt == nil {
 		now := time.Now()
 		req.PaidAt = &now
@@ -42,14 +28,21 @@ func (s *service) Create(ctx context.Context, projectID, userID string, req Crea
 		PaidAt:      *req.PaidAt,
 	}
 
-	result, err := s.repo.Create(ctx, expense)
-	if err != nil {
+	return s.repo.Create(ctx, expense)
+}
+
+func (s *Service) List(ctx context.Context, projectID, userID string) ([]Expense, error) {
+	if err := s.repo.OwnerCheck(ctx, projectID, userID); err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	return s.repo.List(ctx, projectID)
 }
 
-func (s *service) Delete(ctx context.Context, projectID, expenseID string) error {
-	return s.repo.Delete(ctx, projectID, expenseID)
+func (s *Service) Update(ctx context.Context, projectID, userID string, req UpdateExpenseRequest) (*Expense, error) {
+	return s.repo.Update(ctx, projectID, userID, req)
+}
+
+func (s *Service) Delete(ctx context.Context, expenseID, userID string) error {
+	return s.repo.Delete(ctx, userID, expenseID)
 }

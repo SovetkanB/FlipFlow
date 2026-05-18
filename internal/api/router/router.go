@@ -56,12 +56,14 @@ func NewRouter(authS *auth.Service, auth *auth.Handler, project *project.Handler
 					r.Patch("/", project.Update)
 					r.Delete("/", project.Delete)
 					r.Get("/summary", project.FinancialSummary)
+					r.Patch("/status", project.ChangeStatus)
 
 					r.Route("/expenses", func(r chi.Router) {
 						r.Get("/", expense.List)
 						r.Post("/", expense.Create)
 
 						r.Route("/{expenseID}", func(r chi.Router) {
+							r.Patch("/", expense.Update)
 							r.Delete("/", expense.Delete)
 						})
 					})

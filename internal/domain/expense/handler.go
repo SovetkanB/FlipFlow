@@ -11,11 +11,29 @@ import (
 )
 
 type Handler struct {
-	service Service
+	service *Service
 }
 
-func NewHandler(srv Service) *Handler {
+func NewHandler(srv *Service) *Handler {
 	return &Handler{service: srv}
+}
+
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
+	claims := auth.ClaimsFromContext(r.Context())
+	if claims == nil {
+		response.Unauthorized(w)
+		return
+	}
+
+	projectID := chi.URLParam(r, "projectID")
+	res, err := h.service.List(r.Context(), projectID, claims.UserID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Error", err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, res)
+
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -42,22 +60,27 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, res)
 }
 
-func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := auth.ClaimsFromContext(r.Context())
 	if claims == nil {
 		response.Unauthorized(w)
 		return
 	}
 
-	projectID := chi.URLParam(r, "projectID")
-	res, err := h.service.List(r.Context(), projectID)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "Error", err.Error())
+	var req UpdateExpenseRequest
+	if err := validator.DecodeAndValidate(r, &req); err != nil {
+		response.BadRequest(w, err.Error())
 		return
 	}
 
-	response.JSON(w, http.StatusOK, res)
+	projectID := chi.URLParam(r, "projectID")
 
+	res, err := h.service.Update(r.Context(), projectID, claims.UserID, req)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Error", err.Error())
+	}
+
+	response.JSON(w, http.StatusOK, res)
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -67,10 +90,10 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := chi.URLParam(r, "projectID")
+	//projectID := chi.URLParam(r, "projectID")
 	expenseID := chi.URLParam(r, "expenseID")
 
-	err := h.service.Delete(r.Context(), projectID, expenseID)
+	err := h.service.Delete(r.Context(), expenseID, claims.UserID)
 	if err != nil {
 		switch {
 		case errors.Is(err, response.ErrNotFound):

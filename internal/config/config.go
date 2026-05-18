@@ -3,13 +3,15 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
 type Config struct {
-	App AppConfig
-	DB  DBConfig
-	JWT JWTConfig
+	App   AppConfig
+	DB    DBConfig
+	JWT   JWTConfig
+	MinIO MinIOConfig
 }
 
 type AppConfig struct {
@@ -32,6 +34,16 @@ type JWTConfig struct {
 	RefreshTTL time.Duration
 }
 
+type MinIOConfig struct {
+	Endpoint     string
+	User         string
+	Password     string
+	UseSSL       bool
+	BucketPhotos string
+	BucketFiles  string
+	URLExpiry    time.Duration
+}
+
 func (d *DBConfig) DSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
@@ -50,6 +62,12 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid JWT_REFRESH_TTL: %w", err)
 	}
 
+	urlExpiry, err := time.ParseDuration(getEnv("FILE_URL_EXPIRY", "1h"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid FILE_URL_EXPIRY: %w", err)
+	}
+	ssl, _ := strconv.ParseBool(getEnv("MINIO_USE_SSL", "false"))
+
 	return &Config{
 		App: AppConfig{
 			Port: getEnv("APP_PORT", "8080"),
@@ -67,6 +85,15 @@ func Load() (*Config, error) {
 			Secret:     getEnv("JWT_SECRET", ""),
 			AccessTTL:  accessTTL,
 			RefreshTTL: refreshTTL,
+		},
+		MinIO: MinIOConfig{
+			Endpoint:     getEnv("MINIO_ENDPOINT", "localhost:9000"),
+			User:         getEnv("MINIO_USER", "minioadmin"),
+			Password:     getEnv("MINIO_PASSWORD", "minioadmin"),
+			UseSSL:       ssl,
+			BucketPhotos: getEnv("MINIO_BUCKET_PHOTOS", "flipflow-photos"),
+			BucketFiles:  getEnv("MINIO_BUCKET_FILES", "flipflow-files"),
+			URLExpiry:    urlExpiry,
 		},
 	}, nil
 }

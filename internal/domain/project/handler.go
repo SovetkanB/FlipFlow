@@ -12,30 +12,40 @@ import (
 )
 
 type Handler struct {
-	service Service
+	service *Service
 }
 
-func NewHandler(srv Service) *Handler {
+func NewHandler(srv *Service) *Handler {
 	return &Handler{
 		service: srv,
 	}
 }
 
-func (h *Handler) FinancialSummary(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	claims := auth.ClaimsFromContext(r.Context())
 	if claims == nil {
 		response.Unauthorized(w)
 		return
 	}
 
-	projectID := chi.URLParam(r, "projectID")
-	res, err := h.service.GetFinancialSummary(r.Context(), projectID, claims.UserID)
+	f := ListFilter{
+		Status: r.URL.Query().Get("status"),
+		Limit:  parseInt(r, "limit", 20),
+		Offset: parseInt(r, "offset", 0),
+	}
+
+	list, total, err := h.service.List(r.Context(), claims.UserID, f)
 	if err != nil {
-		response.NotFound(w, err.Error())
+		response.Error(w, http.StatusInternalServerError, "Error", err.Error())
 		return
 	}
 
-	response.JSON(w, http.StatusOK, res)
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"items":  list,
+		"total":  total,
+		"limit":  f.Limit,
+		"offset": f.Offset,
+	})
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -84,28 +94,6 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, res)
 }
 
-func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-	claims := auth.ClaimsFromContext(r.Context())
-	if claims == nil {
-		response.Unauthorized(w)
-		return
-	}
-
-	projectID := chi.URLParam(r, "projectID")
-
-	err := h.service.Delete(r.Context(), projectID, claims.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, response.ErrNotFound):
-			response.Error(w, http.StatusNotFound, "NOT_FOUND", err.Error())
-			return
-		default:
-			response.Error(w, http.StatusInternalServerError, "Error", err.Error())
-			return
-		}
-	}
-}
-
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := auth.ClaimsFromContext(r.Context())
 	if claims == nil {
@@ -136,32 +124,68 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, res)
 }
 
-func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ChangeStatus(w http.ResponseWriter, r *http.Request) {
+	claims := auth.ClaimsFromContext(r.Context())
+	if claims == nil {
+		response.Unauthorized(w)
+		return
+	}
+	projectID := chi.URLParam(r, "projectID")
+
+	var body struct {
+		Status    Status   `json:"status"`
+		SoldPrice *float64 `json:"sold_price"`
+	}
+	if err := validator.DecodeAndValidate(r, &body); err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+
+	res, err := h.service.ChangeStatus(r.Context(), projectID, claims.UserID, body.Status, body.SoldPrice)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	response.JSON(w, http.StatusOK, res)
+}
+
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	claims := auth.ClaimsFromContext(r.Context())
 	if claims == nil {
 		response.Unauthorized(w)
 		return
 	}
 
-	f := ListFilter{
-		Status: r.URL.Query().Get("status"),
-		City:   r.URL.Query().Get("city"),
-		Limit:  parseInt(r, "limit", 20),
-		Offset: parseInt(r, "offset", 0),
-	}
+	projectID := chi.URLParam(r, "projectID")
 
-	list, total, err := h.service.List(r.Context(), claims.UserID, f)
+	err := h.service.Delete(r.Context(), projectID, claims.UserID)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "Error", err.Error())
+		switch {
+		case errors.Is(err, response.ErrNotFound):
+			response.Error(w, http.StatusNotFound, "NOT_FOUND", err.Error())
+			return
+		default:
+			response.Error(w, http.StatusInternalServerError, "Error", err.Error())
+			return
+		}
+	}
+}
+
+func (h *Handler) FinancialSummary(w http.ResponseWriter, r *http.Request) {
+	claims := auth.ClaimsFromContext(r.Context())
+	if claims == nil {
+		response.Unauthorized(w)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"items":  list,
-		"total":  total,
-		"limit":  f.Limit,
-		"offset": f.Offset,
-	})
+	projectID := chi.URLParam(r, "projectID")
+	res, err := h.service.GetFinancialSummary(r.Context(), projectID, claims.UserID)
+	if err != nil {
+		response.NotFound(w, err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, res)
 }
 
 func parseInt(r *http.Request, key string, def int) int {
