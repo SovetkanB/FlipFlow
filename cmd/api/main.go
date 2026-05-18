@@ -11,11 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/SovetkanB/FlipFlow/internal/api/middleware"
 	"github.com/SovetkanB/FlipFlow/internal/api/router"
 	"github.com/SovetkanB/FlipFlow/internal/config"
 	"github.com/SovetkanB/FlipFlow/internal/database"
 	"github.com/SovetkanB/FlipFlow/internal/domain/auth"
+	"github.com/SovetkanB/FlipFlow/internal/domain/expense"
+	"github.com/SovetkanB/FlipFlow/internal/domain/project"
 	"github.com/joho/godotenv"
 )
 
@@ -28,27 +29,30 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
-
 	if cfg.JWT.Secret == "" {
 		log.Fatal("JWT_SECRET is required")
 	}
 
-	db, err := database.NewDB(&cfg.DB)
+	db, err := database.Connect(cfg.DB.DSN())
 	if err != nil {
 		log.Fatalf("Failed to connect to DB: %v", err)
 	}
 	defer db.Close()
-
 	log.Println("Connected to PostgreSQL")
 
-	jwtManager := auth.NewJWTManager(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
-	authMiddleware := middleware.NewAuthMiddleware(jwtManager)
-
 	authRepo := auth.NewRepo(db)
-	authService := auth.NewService(authRepo, *jwtManager)
+	authService := auth.NewService(authRepo, cfg.JWT)
 	authHandler := auth.NewHandler(authService)
 
-	router := router.NewRouter(authHandler, authMiddleware)
+	expenseRepo := expense.NewRepo(db)
+	expenseService := expense.NewService(expenseRepo)
+	expenseHandler := expense.NewHandler(expenseService)
+
+	projectRepo := project.NewRepo(db)
+	projectService := project.NewService(projectRepo)
+	projectHandler := project.NewHandler(projectService)
+
+	router := router.NewRouter(authService, authHandler, projectHandler, expenseHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.App.Port),

@@ -40,12 +40,12 @@ func (d *DBConfig) DSN() string {
 }
 
 func Load() (*Config, error) {
-	jwtAccess, err := time.ParseDuration(getEnv("JWT_ACCESS_TTL", "15m"))
+	accessTTL, err := time.ParseDuration(getEnv("JWT_ACCESS_TTL", "15m"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid JWT_ACCESS_TTL: %w", err)
 	}
 
-	jwtRefresh, err := time.ParseDuration(getEnv("JWT_REFRESH_TTL", "168h"))
+	refreshTTL, err := time.ParseDuration(getEnv("JWT_REFRESH_TTL", "168h"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid JWT_REFRESH_TTL: %w", err)
 	}
@@ -65,8 +65,8 @@ func Load() (*Config, error) {
 		},
 		JWT: JWTConfig{
 			Secret:     getEnv("JWT_SECRET", ""),
-			AccessTTL:  jwtAccess,
-			RefreshTTL: jwtRefresh,
+			AccessTTL:  accessTTL,
+			RefreshTTL: refreshTTL,
 		},
 	}, nil
 }

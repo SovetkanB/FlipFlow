@@ -4,16 +4,15 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/SovetkanB/FlipFlow/internal/api/middleware"
 	"github.com/SovetkanB/FlipFlow/internal/pkg/response"
 	"github.com/SovetkanB/FlipFlow/internal/pkg/validator"
 )
 
 type Handler struct {
-	service Service
+	service *Service
 }
 
-func NewHandler(svc Service) *Handler {
+func NewHandler(svc *Service) *Handler {
 	return &Handler{
 		service: svc,
 	}
@@ -64,7 +63,7 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.RefreshTokens(r.Context(), req)
+	resp, err := h.service.Refresh(r.Context(), req)
 	if err != nil {
 		response.Error(w, http.StatusUnauthorized, "INVALID_REFRESH_TOKEN", err.Error())
 		return
@@ -74,9 +73,17 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.ClaimsFromContext(r.Context())
+	claims := ClaimsFromContext(r.Context())
 	if claims == nil {
 		response.Unauthorized(w)
 		return
 	}
+
+	resp, err := h.service.Me(r.Context(), claims.UserID)
+	if err != nil {
+		response.NotFound(w, err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }

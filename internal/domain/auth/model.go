@@ -3,26 +3,8 @@ package auth
 import (
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/SovetkanB/FlipFlow/internal/domain/user"
 )
-
-type User struct {
-	ID           string    `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	FullName     string    `json:"full_name"`
-	Phone        string    `json:"phone"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-}
-
-type UserResponse struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	FullName  string    `json:"full_name"`
-	Phone     string    `json:"phone"`
-	CreatedAt time.Time `json:"created_at"`
-}
 
 type RegisterRequest struct {
 	Email    string `json:"email" validate:"required,email"`
@@ -36,11 +18,6 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
-type AuthResponse struct {
-	Token TokenPair    `json:"token"`
-	User  UserResponse `json:"user"`
-}
-
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
@@ -48,7 +25,6 @@ type RefreshTokenRequest struct {
 type Claims struct {
 	UserID string `json:"user_id"`
 	Email  string `json:"email"`
-	jwt.RegisteredClaims
 }
 
 type TokenPair struct {
@@ -65,12 +41,7 @@ type RefreshToken struct {
 	CreatedAt time.Time
 }
 
-func (u *User) ToResponse() UserResponse {
-	return UserResponse{
-		ID:        u.ID,
-		Email:     u.Email,
-		FullName:  u.FullName,
-		Phone:     u.Phone,
-		CreatedAt: u.CreatedAt,
-	}
+type AuthResponse struct {
+	Token TokenPair         `json:"token"`
+	User  user.UserResponse `json:"user"`
 }

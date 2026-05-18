@@ -4,29 +4,22 @@ import (
 	"context"
 	"strings"
 
+	"github.com/SovetkanB/FlipFlow/internal/domain/user"
 	"github.com/SovetkanB/FlipFlow/internal/pkg/response"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Repo interface {
-	Create(ctx context.Context, user *User) error
-	FindByEmail(ctx context.Context, email string) (*User, error)
-	FindByID(ctx context.Context, id string) (*User, error)
-	CreateRefreshToken(ctx context.Context, rt *RefreshToken) error
-	DeleteRefreshToken(ctx context.Context, rt string) (string, error)
-}
-
-type repo struct {
+type Repo struct {
 	db *pgxpool.Pool
 }
 
-func NewRepo(db *pgxpool.Pool) Repo {
-	return &repo{
+func NewRepo(db *pgxpool.Pool) *Repo {
+	return &Repo{
 		db: db,
 	}
 }
 
-func (r *repo) Create(ctx context.Context, user *User) error {
+func (r *Repo) Create(ctx context.Context, user *user.User) error {
 	query := `
 		INSERT INTO users (email, password_hash, full_name, phone)
 		VALUES ($1, $2, $3, $4)
@@ -57,12 +50,12 @@ func (r *repo) Create(ctx context.Context, user *User) error {
 	return nil
 }
 
-func (r *repo) FindByEmail(ctx context.Context, email string) (*User, error) {
+func (r *Repo) GetByEmail(ctx context.Context, email string) (*user.User, error) {
 	query := `
 		SELECT id, email, password_hash, full_name, phone, created_at, updated_at FROM users
 		WHERE email = $1
 	`
-	var user User
+	var user user.User
 	err := r.db.QueryRow(ctx, query, email).Scan(
 		&user.ID,
 		&user.Email,
@@ -85,12 +78,12 @@ func (r *repo) FindByEmail(ctx context.Context, email string) (*User, error) {
 	return &user, nil
 }
 
-func (r *repo) FindByID(ctx context.Context, id string) (*User, error) {
+func (r *Repo) GetByID(ctx context.Context, id string) (*user.User, error) {
 	query := `
 		SELECT id, email, password_hash, full_name, phone, created_at, updated_at FROM users
 		WHERE id = $1
 	`
-	var user User
+	var user user.User
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&user.ID,
 		&user.Email,
@@ -113,7 +106,7 @@ func (r *repo) FindByID(ctx context.Context, id string) (*User, error) {
 	return &user, nil
 }
 
-func (r *repo) CreateRefreshToken(ctx context.Context, rt *RefreshToken) error {
+func (r *Repo) CreateRefreshToken(ctx context.Context, rt *RefreshToken) error {
 	query := `
 		INSERT INTO refresh_tokens (user_id, token, expires_at)
 		VALUES ($1, $2, $3) RETURNING id, created_at
@@ -127,7 +120,7 @@ func (r *repo) CreateRefreshToken(ctx context.Context, rt *RefreshToken) error {
 	return err
 }
 
-func (r *repo) DeleteRefreshToken(ctx context.Context, rt string) (string, error) {
+func (r *Repo) DeleteRefreshToken(ctx context.Context, rt string) (string, error) {
 	query := `
 		DELETE FROM refresh_tokens
 		WHERE token = $1 AND expires_at > NOW()

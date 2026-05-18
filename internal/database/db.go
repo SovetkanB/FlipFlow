@@ -3,12 +3,11 @@ package database
 import (
 	"context"
 
-	"github.com/SovetkanB/FlipFlow/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewDB(dbCfg *config.DBConfig) (*pgxpool.Pool, error) {
-	db, err := pgxpool.New(context.Background(), dbCfg.DSN())
+func Connect(dsn string) (*pgxpool.Pool, error) {
+	db, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		return nil, err
 	}

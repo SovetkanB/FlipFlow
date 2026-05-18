@@ -9,45 +9,24 @@ import (
 	"github.com/SovetkanB/FlipFlow/internal/pkg/response"
 )
 
-type contextKey string
+func JWT(svc *auth.Service) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			header := r.Header.Get("Authorization")
+			if header == "" || !strings.HasPrefix(header, "Bearer ") {
+				response.Unauthorized(w)
+				return
+			}
 
-const claimsKey contextKey = "claims"
+			tokenStr := strings.TrimPrefix(header, "Bearer ")
+			claims, err := svc.ValidateToken(tokenStr)
+			if err != nil {
+				response.Unauthorized(w)
+				return
+			}
 
-type AuthMiddleware struct {
-	jwtManager *auth.JWTManager
-}
-
-func NewAuthMiddleware(jwtManager *auth.JWTManager) *AuthMiddleware {
-	return &AuthMiddleware{
-		jwtManager: jwtManager,
+			ctx := context.WithValue(r.Context(), auth.ClaimsKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
 	}
-}
-
-func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		header := r.Header.Get("Authorization")
-		if header == "" || !strings.HasPrefix(header, "Bearer ") {
-			response.Unauthorized(w)
-			return
-		}
-
-		tokenStr := strings.TrimPrefix(header, "Bearer ")
-		claims, err := m.jwtManager.ValidateToken(tokenStr)
-		if err != nil {
-			response.Unauthorized(w)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), claimsKey, claims)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-func ClaimsFromContext(ctx context.Context) *auth.Claims {
-	v := ctx.Value(claimsKey)
-	if v == nil {
-		return nil
-	}
-	claims, _ := v.(*auth.Claims)
-	return claims
 }

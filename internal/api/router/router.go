@@ -5,18 +5,22 @@ import (
 	"net/http"
 	"time"
 
-	fliflowMiddleware "github.com/SovetkanB/FlipFlow/internal/api/middleware"
+	flipMiddle "github.com/SovetkanB/FlipFlow/internal/api/middleware"
 	"github.com/SovetkanB/FlipFlow/internal/domain/auth"
+	"github.com/SovetkanB/FlipFlow/internal/domain/expense"
+	"github.com/SovetkanB/FlipFlow/internal/domain/project"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )
 
 type Router struct {
-	auth           *auth.Handler
-	authMiddleware *fliflowMiddleware.AuthMiddleware
+	authS   *auth.Service
+	authH   *auth.Handler
+	project *project.Handler
+	expense *expense.Handler
 }
 
-func NewRouter(auth *auth.Handler, authMiddleware *fliflowMiddleware.AuthMiddleware) http.Handler {
+func NewRouter(authS *auth.Service, auth *auth.Handler, project *project.Handler, expense *expense.Handler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -39,9 +43,30 @@ func NewRouter(auth *auth.Handler, authMiddleware *fliflowMiddleware.AuthMiddlew
 
 		//Private endpoints
 		r.Group(func(r chi.Router) {
-			r.Use(authMiddleware.Authenticate)
+			r.Use(flipMiddle.JWT(authS))
 
 			r.Get("/auth/me", auth.Me)
+
+			r.Route("/projects", func(r chi.Router) {
+				r.Get("/", project.List)
+				r.Post("/", project.Create)
+
+				r.Route("/{projectID}", func(r chi.Router) {
+					r.Get("/", project.GetByID)
+					r.Patch("/", project.Update)
+					r.Delete("/", project.Delete)
+					r.Get("/summary", project.FinancialSummary)
+
+					r.Route("/expenses", func(r chi.Router) {
+						r.Get("/", expense.List)
+						r.Post("/", expense.Create)
+
+						r.Route("/{expenseID}", func(r chi.Router) {
+							r.Delete("/", expense.Delete)
+						})
+					})
+				})
+			})
 		})
 	})
 

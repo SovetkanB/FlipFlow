@@ -44,3 +44,7 @@ func BadRequest(w http.ResponseWriter, message string) {
 func Unauthorized(w http.ResponseWriter) {
 	Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "authorization is required")
 }
+
+func NotFound(w http.ResponseWriter, message string) {
+	Error(w, http.StatusNotFound, "NOT_FOUND", message)
+}
